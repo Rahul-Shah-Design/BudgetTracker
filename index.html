@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Budget Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">budget<span>.</span></div>
+    <div class="sidebar-section">Overview</div>
+    <ul class="sidebar-nav">
+      <li class="active" onclick="switchView('dashboard',this)"><div class="dot"></div>Dashboard</li>
+      <li onclick="switchView('calculator',this)"><div class="dot"></div>Budget Calculator</li>
+      <li onclick="switchView('settings',this)"><div class="dot"></div>Settings</li>
+    </ul>
+    <div class="sidebar-section">Months</div>
+    <ul class="sidebar-nav" id="month-nav"></ul>
+  </nav>
+
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-header"><h1>Overview</h1><p>Your spending and savings at a glance</p></div>
+      <div class="stat-row" id="stat-row"></div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h2>Needs, Wants &amp; Savings</h2>
+          <div class="chart-year">
+            <button onclick="changeYear(-1)">‹</button>
+            <span id="chart-year-label"></span>
+            <button onclick="changeYear(1)">›</button>
+          </div>
+        </div>
+        <div class="chart-wrapper"><canvas id="mainChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- BUDGET CALCULATOR -->
+    <div class="view" id="view-calculator">
+      <div class="page-header"><h1>Budget Calculator</h1><p>Salary → paycheck → budget. Every field flows through in real time.</p></div>
+      <div class="calc-layout">
+        <div>
+
+          <!-- GROSS -->
+          <div class="calc-section">
+            <div class="calc-section-header"><span class="calc-section-title">Gross Income</span></div>
+            <div class="calc-section-body">
+              <div class="calc-row">
+                <div class="calc-row-label">Annual Salary</div>
+                <div class="calc-row-right"><span class="ci-prefix">$</span><input class="ci ci-w100" type="number" id="c-salary" value="77536" oninput="recalc()"></div>
+              </div>
+              <div class="calc-row">
+                <div class="calc-row-label">Pay Frequency<small>How often you receive a paycheck</small></div>
+                <div class="calc-row-right">
+                  <select class="ci ci-select-sm" id="c-payfreq" onchange="recalc()">
+                    <option value="24">Semi-Monthly (24×)</option>
+                    <option value="26">Bi-Weekly (26×)</option>
+                    <option value="12">Monthly (12×)</option>
+                    <option value="52">Weekly (52×)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PRE-TAX -->
+          <div class="calc-section">
+            <div class="calc-section-header">
+              <span class="calc-section-title">Pre-Tax Deductions</span>
+              <span id="badge-401k" class="good-badge">—</span>
+            </div>
+            <div class="calc-section-body">
+              <div class="calc-row">
+                <div class="calc-row-label">Traditional 401(k)<small>Percentage of gross salary</small></div>
+                <div class="calc-row-right">
+                  <input class="ci ci-w70" type="number" id="c-401k-pct" value="11" min="0" max="100" step="0.5" oninput="recalc()">
+                  <span class="ci-prefix">%</span>
+                  <span class="cv cv-neg" id="cv-401k">—</span>
+                </div>
+              </div>
+              <div class="calc-row">
+                <div class="calc-row-label">HSA<small>Per paycheck (pre-tax)</small></div>
+                <div class="calc-row-right"><span class="ci-prefix">$</span><input class="ci ci-w100" type="number" id="c-hsa" value="110" oninput="recalc()"></div>
+              </div>
+              <div class="calc-row">
+                <div class="calc-row-label">Health Insurance<small>Per paycheck</small></div>
+                <div class="calc-row-right"><span class="ci-prefix">$</span><input class="ci ci-w100" type="number" id="c-health" value="26.07" oninput="recalc()"></div>
+              </div>
+              <div class="calc-row">
+                <div class="calc-row-label">Dental<small>Per paycheck</small></div>
+                <div class="calc-row-right"><span class="ci-prefix">$</span><input class="ci ci-w100" type="number" id="c-dental" value="5.52" oninput="recalc()"></div>
+              </div>
+              <div class="calc-row">
+                <div class="calc-row-label">Vision<small>Per paycheck</small></div>
+                <div class="calc-row-right"><span class="ci-prefix">$</span><input class="ci ci-w100" type="number" id="c-vision" value="0.59" oninput="recalc()"></div>
+              </div>
+              <div class="calc-row">
+                <div class="calc-row-label">GTL / Other pre-tax<small>Per paycheck</small></div>
+                <div class="calc-row-right"><span class="ci-prefix">$</span><input class="ci ci-w100" type="number" id="c-gtl" value="3.06" oninput="recalc()"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAXES -->
+          <div class="calc-section">
+            <div class="calc-section-header"><span class="calc-section-title">Taxes</span></div>
+            <div class="calc-section-body">
+              <div class="calc-row">
+                <div class="calc-row-label">
+                  Federal Income Tax
+                  <small>Auto-calculated from 2024 brackets — or override with your paystub</small>
+                </div>
+                <div class="calc-row-right" style="flex-direction:column;align-items:flex-end;gap:5px;">
+                  <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;">
+                    <input type="checkbox" id="c-fed-override" onchange="recalc()"> Use paystub amount
+                  </label>
+                  <span class="cv cv-neg" id="cv-fed-auto">—</span>
+                  <input class="ci ci-w100" type="number" id="c-fed-manual" value="715" style="display:none;" oninput="recalc()">
+                </div>
+              </div>
+              <div class="calc-row">
+                <div class="calc-row-label">Social Security<small>6.2% of gross — auto</small></div>
+                <div class="cv cv-neg" id="cv-ss">—</div>
+              </div>
+              <div class="calc-row">
+                <div class="calc-row-label">Medicare<small>1.45% of gross — auto</small></div>
+                <div class="cv cv-neg" id="cv-med">—</div>
+              </div>
+              <div class="calc-row">
+                <div class="calc-row-label">State Tax<small>Per paycheck — copy from paystub</small></div>
+                <div class="calc-row-right">
+                  <span class="ci-prefix">$</span>
+                  <input class="ci ci-w100" type="number" id="c-state-dollar" value="0" step="0.01" oninput="recalc()">
+                  <span class="cv cv-neg" id="cv-state">—</span>
+                </div>
+              </div>
+              <div class="calc-row">
+                <div class="calc-row-label">Local / City Tax<small>Per paycheck — copy from paystub</small></div>
+                <div class="calc-row-right">
+                  <span class="ci-prefix">$</span>
+                  <input class="ci ci-w100" type="number" id="c-local-dollar" value="0" step="0.01" oninput="recalc()">
+                  <span class="cv cv-neg" id="cv-local">—</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- POST-TAX -->
+          <div class="calc-section">
+            <div class="calc-section-header"><span class="calc-section-title">Post-Tax Deductions</span></div>
+            <div class="calc-section-body">
+              <div class="calc-row">
+                <div class="calc-row-label">Roth IRA<small>Per paycheck</small></div>
+                <div class="calc-row-right"><span class="ci-prefix">$</span><input class="ci ci-w100" type="number" id="c-roth" value="0" oninput="recalc()"></div>
+              </div>
+              <div class="calc-row">
+                <div class="calc-row-label">Other post-tax<small>Per paycheck</small></div>
+                <div class="calc-row-right"><span class="ci-prefix">$</span><input class="ci ci-w100" type="number" id="c-other" value="0" oninput="recalc()"></div>
+              </div>
+            </div>
+            <div class="calc-total-row">
+              <span class="calc-total-label">Take-Home Per Paycheck</span>
+              <span class="calc-total-val" id="cv-takehome">$0.00</span>
+            </div>
+          </div>
+
+        </div><!-- end left col -->
+
+        <!-- RIGHT: RESULT PANEL -->
+        <div>
+          <div class="result-panel">
+            <div class="result-panel-hdr"><h3>Paycheck Breakdown</h3></div>
+            <div class="result-panel-body">
+              <div class="rline"><span class="rline-label">Gross per paycheck</span><span class="rline-val pos" id="r-gross">—</span></div>
+              <div class="rline"><span class="rline-label">Pre-tax deductions</span><span class="rline-val neg" id="r-pretax">—</span></div>
+              <div class="rline"><span class="rline-label">Taxable / paycheck</span><span class="rline-val" id="r-taxable">—</span></div>
+              <div class="rline"><span class="rline-label">Federal tax</span><span class="rline-val neg" id="r-fed">—</span></div>
+              <div class="rline"><span class="rline-label">State tax</span><span class="rline-val neg" id="r-state">—</span></div>
+              <div class="rline"><span class="rline-label">FICA (SS + Medicare)</span><span class="rline-val neg" id="r-fica">—</span></div>
+              <div class="rline"><span class="rline-label">Local tax</span><span class="rline-val neg" id="r-local">—</span></div>
+              <div class="rline"><span class="rline-label">Post-tax deductions</span><span class="rline-val neg" id="r-posttax">—</span></div>
+              <div class="rline"><span class="rline-label">Effective tax rate</span><span class="rline-val" id="r-effrate">—</span></div>
+            </div>
+            <div class="result-takehome">
+              <div class="result-takehome-lbl">Take-Home Per Paycheck</div>
+              <div class="result-takehome-amt" id="r-takehome">$0</div>
+              <div class="result-takehome-sub" id="r-monthly">— / month</div>
+            </div>
+
+            <div class="split-section">
+              <div class="split-title">Monthly Budget Split</div>
+              <div class="split-row">
+                <span class="split-lbl" style="color:var(--needs)">Needs</span>
+                <input class="split-pct" type="number" id="sp-needs" value="50" min="0" max="100" oninput="recalcSplit()">
+                <span style="font-size:11px;color:var(--muted)">%</span>
+                <div class="split-bar-wrap"><div class="split-bar-fill" id="bar-needs" style="background:var(--needs);width:50%"></div></div>
+                <span class="split-amt" style="color:var(--needs)" id="sa-needs">—</span>
+              </div>
+              <div class="split-row">
+                <span class="split-lbl" style="color:var(--wants)">Wants</span>
+                <input class="split-pct" type="number" id="sp-wants" value="15" min="0" max="100" oninput="recalcSplit()">
+                <span style="font-size:11px;color:var(--muted)">%</span>
+                <div class="split-bar-wrap"><div class="split-bar-fill" id="bar-wants" style="background:var(--wants);width:15%"></div></div>
+                <span class="split-amt" style="color:var(--wants)" id="sa-wants">—</span>
+              </div>
+              <div class="split-row">
+                <span class="split-lbl" style="color:var(--savings)">Save</span>
+                <input class="split-pct" type="number" id="sp-save" value="35" min="0" max="100" oninput="recalcSplit()">
+                <span style="font-size:11px;color:var(--muted)">%</span>
+                <div class="split-bar-wrap"><div class="split-bar-fill" id="bar-save" style="background:var(--savings);width:35%"></div></div>
+                <span class="split-amt" style="color:var(--savings)" id="sa-save">—</span>
+              </div>
+              <div class="split-warn" id="split-warn">⚠ Percentages should total 100%</div>
+              <button class="apply-btn" id="apply-btn" onclick="applyToTracker()">Apply to Budget Tracker →</button>
+              <div class="apply-note">Updates dashed budget lines and monthly targets</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SETTINGS VIEW -->
+    <div class="view" id="view-settings">
+      <div class="page-header"><h1>Settings</h1><p>Budget targets, paycheck defaults, and savings baseline</p></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:700px;">
+        <div class="calc-section" style="margin-bottom:0;">
+          <div class="calc-section-header"><span class="calc-section-title">Budget Targets</span></div>
+          <div class="calc-section-body">
+            <div class="calc-row"><div class="calc-row-label">Needs Budget ($/mo)</div><div class="calc-row-right"><span class="ci-prefix">$</span><input class="ci ci-w100" type="number" id="set-needs"></div></div>
+            <div class="calc-row"><div class="calc-row-label">Wants Budget ($/mo)</div><div class="calc-row-right"><span class="ci-prefix">$</span><input class="ci ci-w100" type="number" id="set-wants"></div></div>
+            <div class="calc-row"><div class="calc-row-label">Savings Target ($/mo)</div><div class="calc-row-right"><span class="ci-prefix">$</span><input class="ci ci-w100" type="number" id="set-savings-target"></div></div>
+            <div class="calc-row"><div class="calc-row-label">Starting Savings Balance<small>Your current total savings today</small></div><div class="calc-row-right"><span class="ci-prefix">$</span><input class="ci ci-w100" type="number" id="set-starting-savings"></div></div>
+          </div>
+          <div class="calc-total-row">
+            <button class="apply-btn" onclick="saveSettings()" style="width:auto;margin-top:0;padding:8px 20px;">Save Settings</button>
+          </div>
+        </div>
+        <div class="calc-section" style="margin-bottom:0;">
+          <div class="calc-section-header"><span class="calc-section-title">Paycheck Defaults</span></div>
+          <div class="calc-section-body">
+            <div class="calc-row"><div class="calc-row-label">Paycheck Amount<small>Take-home per paycheck</small></div><div class="calc-row-right"><span class="ci-prefix">$</span><input class="ci ci-w100" type="number" id="set-paycheck"></div></div>
+            <div class="calc-row">
+              <div class="calc-row-label">Paychecks per Month</div>
+              <div class="calc-row-right">
+                <select class="ci ci-select-sm" id="set-paycheck-count">
+                  <option value="1">1 — Monthly</option>
+                  <option value="2" selected>2 — Semi-monthly</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="calc-total-row" style="color:var(--muted);font-size:12px;">Changes apply to new months only</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MONTH VIEW -->
+    <div class="view" id="view-month">
+      <div class="month-header">
+        <button class="month-nav-btn" onclick="navigateMonth(-1)">‹</button>
+        <h1 style="font-family:var(--font-display);font-size:26px;font-weight:400;" id="month-title">January</h1>
+        <button class="month-nav-btn" onclick="navigateMonth(1)">›</button>
+      </div>
+      <div class="month-summary" id="month-summary"></div>
+      <div class="tables-grid">
+        <div class="tx-card">
+          <div class="tx-card-header">
+            <span class="tx-card-title"><span class="orange">Expense</span> Transactions</span>
+            <button class="add-btn" onclick="openModal('expense')">+ Add</button>
+          </div>
+          <table class="tx-table">
+            <thead><tr><th>Date</th><th>Amount</th><th>Description</th><th>Category</th><th></th></tr></thead>
+            <tbody id="expense-tbody"></tbody>
+          </table>
+        </div>
+        <div class="tx-card">
+          <div class="tx-card-header">
+            <span class="tx-card-title"><span class="orange">Income</span> Transactions</span>
+            <button class="add-btn" onclick="openModal('income')">+ Add</button>
+          </div>
+          <table class="tx-table">
+            <thead><tr><th>Date</th><th>Amount</th><th>Description</th><th></th></tr></thead>
+            <tbody id="income-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <h3 id="modal-title">Add Expense</h3>
+    <div class="field"><label>Date <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input type="date" id="modal-date"></div>
+    <div class="field">
+      <label>Amount ($)</label>
+      <input type="number" id="modal-amount" placeholder="0.00" step="0.01">
+      <div class="modal-hint" id="modal-hint">Use negative amounts for reimbursements — they subtract from the category total</div>
+    </div>
+    <div class="field"><label>Description</label><input type="text" id="modal-desc" placeholder="Bilt, Rent, Groceries…"></div>
+    <div class="field" id="modal-cat-field">
+      <label>Category</label>
+      <select id="modal-cat">
+        <option value="Needs">Needs</option>
+        <option value="Wants">Wants</option>
+        <option value="Savings">Savings</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+      <button class="save-btn" onclick="saveTransaction()">Add</button>
+    </div>
+  </div>
+</div>
+
+<script src="src/constants.js"></script>
+<script src="src/state.js"></script>
+<script src="src/calculator.js"></script>
+<script src="src/chart.js"></script>
+<script src="src/dashboard.js"></script>
+<script src="src/month.js"></script>
+<script src="src/modal.js"></script>
+<script src="src/nav.js"></script>
+<script src="src/settings.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>
